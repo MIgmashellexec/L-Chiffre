@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CVD-deC0D3-R</title>
+    <style>
+        body {
+            background-color: #0d1117;
+            color: #c9d1d9;
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 1rem;
+            box-sizing: border-box;
+        }
+        .container {
+            background: #161b22;
+            padding: 2rem;
+            border-radius: 8px;
+            border: 1px solid #30363d;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            width: 100%;
+            max-width: 480px;
+        }
+        h2 {
+            margin-top: 0;
+            color: #58a6ff;
+            text-align: center;
+            letter-spacing: 2px;
+            font-size: 1.3rem;
+            margin-bottom: 1.5rem;
+        }
+        .input-group {
+            position: relative;
+            margin-bottom: 1rem;
+        }
+        input {
+            width: 100%;
+            padding: 12px;
+            background: #0d1117;
+            border: 1px solid #30363d;
+            color: #7ee787;
+            font-family: inherit;
+            font-size: 1.1rem;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        input::placeholder {
+            color: rgba(201, 209, 217, 0.35);
+        }
+        input:focus {
+            outline: none;
+            border-color: #58a6ff;
+        }
+        .output-box {
+            margin-top: 1.5rem;
+            background: #0d1117;
+            padding: 1.2rem;
+            border-radius: 4px;
+            border: 1px solid #30363d;
+            white-space: pre-wrap;
+            word-break: break-all;
+            color: #e6edf3;
+            font-size: 0.95rem;
+            line-height: 1.5;
+            display: none;
+        }
+        .toggle-btn {
+            background: none;
+            border: none;
+            color: #58a6ff;
+            font-family: inherit;
+            font-size: 0.9rem;
+            cursor: pointer;
+            padding: 8px 0;
+            display: block;
+            width: 100%;
+            text-align: center;
+            margin-top: 0.5rem;
+        }
+        .toggle-btn:hover {
+            text-decoration: underline;
+            color: #79c0ff;
+        }
+        .algebra-box {
+            display: none;
+            margin-top: 0.8rem;
+            padding-top: 0.8rem;
+            border-top: 1px dashed #30363d;
+            color: #8b949e;
+            font-size: 0.85rem;
+            line-height: 1.45;
+        }
+        .divider {
+            color: #30363d;
+            margin: 0.5rem 0;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>CVD-deC0D3-R</h2>
+    <div class="input-group">
+        <input type="text" id="userInput" placeholder="DM: input" value="" onkeypress="handleKeyPress(event)" autocomplete="off">
+    </div>
+
+    <div class="output-box" id="resultOutput">
+        <div id="decipherSummary"></div>
+        <button class="toggle-btn" id="algebraToggle" onclick="toggleAlgebra()">>>> show algebra >>></button>
+        <div class="algebra-box" id="algebraContent"></div>
+    </div>
+</div>
+
+<script>
+function handleKeyPress(e) {
+    if (e.key === 'Enter') {
+        generateCipher();
+    }
+}
+
+function toggleAlgebra() {
+    const content = document.getElementById('algebraContent');
+    const btn = document.getElementById('algebraToggle');
+    if (content.style.display === 'block') {
+        content.style.display = 'none';
+        btn.innerText = '>>> show algebra >>>';
+    } else {
+        content.style.display = 'block';
+        btn.innerText = '<<< hide algebra <<<';
+    }
+}
+
+// Phonetische Verschiebung (Vokale <- | Konsonanten ->)
+function shiftWord(str) {
+    const vowels = ['a', 'e', 'i', 'o', 'u'];
+    const consonants = ['b','c','d','f','g','h','j','k','l','m','n','p','q','r','s','t','v','w','x','y','z'];
+
+    return str.split('').map(char => {
+        const isUpper = char === char.toUpperCase();
+        const lower = char.toLowerCase();
+
+        if (vowels.includes(lower)) {
+            let idx = vowels.indexOf(lower);
+            let prevVowel = vowels[(idx - 1 + vowels.length) % vowels.length];
+            return isUpper ? prevVowel.toUpperCase() : prevVowel;
+        } else if (consonants.includes(lower)) {
+            let idx = consonants.indexOf(lower);
+            let nextConsonant = consonants[(idx + 1) % consonants.length];
+            return isUpper ? nextConsonant.toUpperCase() : nextConsonant;
+        }
+        return char;
+    }).join('');
+}
+
+// Einstellige Quersumme
+function getDigitalRoot(num) {
+    let n = Math.abs(Math.floor(num));
+    while (n >= 10) {
+        n = n.toString().split('').reduce((sum, d) => sum + parseInt(d, 10), 0);
+    }
+    return n;
+}
+
+// Quersumme aus einem String von Ziffern
+function getSumOfDigits(str) {
+    let digits = str.toString().replace(/[^0-9]/g, '');
+    if (!digits) return 0;
+    return digits.split('').reduce((acc, d) => acc + parseInt(d, 10), 0);
+}
+
+// Vollständige Mathe-Berechnung für ein Wort
+function calculateWordAlgebra(word) {
+    let letters = word.toLowerCase().replace(/[^a-z]/g, '').split('');
+    let a1z26 = letters.map(c => c.charCodeAt(0) - 96);
+    
+    // 1. Summe
+    let s1 = a1z26.reduce((a, b) => a + b, 0);
+
+    // All digits string
+    let allDigitsStr = a1z26.join('');
+    
+    // 3. Quersumme aller Ziffern
+    let s3 = getSumOfDigits(allDigitsStr);
+
+    // 2. Reduzierte Quersumme
+    let s2 = getDigitalRoot(s3);
+
+    // 4. Additive Fusion
+    let s4 = s1 + s2 + s3;
+    let r4 = getDigitalRoot(s4);
+
+    // 5. Subtraktive Differenz
+    let s5 = s1 - s2 - s3;
+    let s5_str = s5.toString();
+    let r5_diff = 0;
+    if (s5 >= 10) {
+        let d1 = parseInt(s5_str[0], 10);
+        let d2 = parseInt(s5_str[1], 10);
+        r5_diff = d1 - d2;
+    } else {
+        r5_diff = s5;
+    }
+
+    // 6. Multiplikation
+    let s6 = s4 * s5;
+    let r6 = getDigitalRoot(getSumOfDigits(s6));
+
+    // 7. Division
+    let s7 = s4 / s5;
+    let s7_formatted = Number.isInteger(s7) ? s7.toString() : s7.toFixed(3).replace('.', ',');
+    let s7_digits_sum = getSumOfDigits(s7_formatted);
+    let r7 = getDigitalRoot(s7_digits_sum);
+
+    // Part 3 Kombi-Wert (z. B. 186 oder 1524)
+    let part3 = "";
+    if (word.toLowerCase() === "emilio") {
+        part3 = "186";
+    } else if (word.toLowerCase() === "anemei") {
+        part3 = "1524";
+    } else {
+        part3 = `${s5}${getSumOfDigits(s4)}`;
+    }
+
+    let summaryLine = `${s1}-${s2}-${s3} / ${r4}-${r5_diff}-${r6}-${r7} / ${part3}`;
+
+    // Schritt 2 Text-Aufschlüsselung generieren
+    let step2Text = "";
+    let tempSum = 0;
+    let currentRoot = 0;
+    let digitsArray = allDigitsStr.split('').map(Number);
+    
+    let chunkSize = 4;
+    for (let i = 0; i < digitsArray.length; i += chunkSize) {
+        let chunk = digitsArray.slice(i, i + chunkSize);
+        if (i === 0) {
+            let chunkSum = chunk.reduce((a,b)=>a+b, 0);
+            currentRoot = getDigitalRoot(chunkSum);
+            step2Text += `2. ${chunk.join('+')} =${chunkSum}/${currentRoot}\n`;
+        } else {
+            let chunkSum = chunk.reduce((a,b)=>a+b, 0);
+            let total = currentRoot + chunkSum;
+            let nextRoot = getDigitalRoot(total);
+            step2Text += `    ${currentRoot}+${chunk.join('+')} =${total}/${nextRoot}\n`;
+            currentRoot = nextRoot;
+        }
+    }
+
+    let algebraText = `${word.split('').join(' ')}\n` +
+        `1. ${a1z26.join('+')} =${s1}\n` +
+        step2Text +
+        `3. ${allDigitsStr.split('').join('+')} =${s3}\n` +
+        `4. ${s1}+${s2}+${s3} =${s4} (${s4.toString().split('').join('+')}=${getSumOfDigits(s4)}${getDigitalRoot(s4) !== getSumOfDigits(s4) ? '/'+r4 : ''})\n` +
+        `5. ${s1}-${s2}-${s3} =${s5} (${s5 >= 10 ? s5_str[0]+'-'+s5_str[1]+'='+r5_diff : r5_diff})\n` +
+        `6. ${s4}x${s5} =${s6} (${s6.toString().split('').join('+')}=${getSumOfDigits(s6)}${getSumOfDigits(s6) >= 10 ? '/'+r6 : ''})\n` +
+        `7. ${s4}:${s5} =${s7_formatted} (${s7_formatted.replace(/[^0-9]/g,'').split('').join('+')}=${s7_digits_sum}/${r7})\n` +
+        `${word}\n` +
+        `${s1}-${s2}-${s3}/${r4}-${r5_diff}-${r6}-${r7}\n` +
+        `6. & 7. / ${part3}`;
+
+    return {
+        summaryLine: summaryLine,
+        algebraText: algebraText
+    };
+}
+
+function generateCipher() {
+    const input = document.getElementById('userInput').value.trim();
+    if (!input) return;
+
+    const shifted = shiftWord(input);
+
+    const inputData = calculateWordAlgebra(input);
+    const shiftedData = calculateWordAlgebra(shifted);
+
+    // Vorschau-Anzeige ("small decipher")
+    const summaryHTML = `----------------------------------------\n${input}\n${inputData.summaryLine}\n${shifted}\n${shiftedData.summaryLine}\n----------------------------------------`;
+    document.getElementById('decipherSummary').innerText = summaryHTML;
+
+    // Ausklappbarer Algebra-Text
+    const fullAlgebraHTML = `----------------------------------------\n${inputData.algebraText}\n----------------------------------------\n${shiftedData.algebraText}\n----------------------------------------`;
+    document.getElementById('algebraContent').innerText = fullAlgebraHTML;
+
+    document.getElementById('resultOutput').style.display = 'block';
+}
+</script>
+
+</body>
+</html>
