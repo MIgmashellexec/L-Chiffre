@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CVD-deC0D3-R :: DECODER</title>
+    <style>
+        body {
+            background-color: #0d1117;
+            color: #c9d1d9;
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 0.8rem;
+            box-sizing: border-box;
+        }
+        .container {
+            background: #161b22;
+            padding: 1.5rem 1rem;
+            border-radius: 8px;
+            border: 1px solid #30363d;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            width: 100%;
+            max-width: 480px;
+            box-sizing: border-box;
+        }
+        h2 {
+            margin-top: 0;
+            color: #58a6ff;
+            text-align: center;
+            letter-spacing: 2px;
+            font-size: 1.2rem;
+            margin-bottom: 1.2rem;
+        }
+        .input-group {
+            margin-bottom: 0.8rem;
+        }
+        label {
+            display: block;
+            font-size: 0.8rem;
+            color: #8b949e;
+            margin-bottom: 4px;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            background: #0d1117;
+            border: 1px solid #30363d;
+            color: #7ee787;
+            font-family: inherit;
+            font-size: 1rem;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        input::placeholder {
+            color: rgba(201, 209, 217, 0.3);
+        }
+        input:focus {
+            outline: none;
+            border-color: #58a6ff;
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            background: #238636;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 0.95rem;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 0.5rem;
+        }
+        button:hover {
+            background: #2ea043;
+        }
+        .output-box {
+            margin-top: 1.2rem;
+            background: #0d1117;
+            padding: 1rem;
+            border-radius: 4px;
+            border: 1px solid #30363d;
+            color: #e6edf3;
+            font-size: 0.85rem;
+            line-height: 1.45;
+            display: none;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        pre {
+            margin: 0;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        .match-item {
+            color: #7ee787;
+            font-weight: bold;
+        }
+        .status {
+            color: #8b949e;
+            font-style: italic;
+            margin-bottom: 8px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>CVD REVERSE SOLVER</h2>
+    
+    <div class="input-group">
+        <label>HAUPT-HASH (Mindesteingabe)</label>
+        <input type="text" id="hash1" placeholder="z. B. 63-9-36" autocomplete="off">
+    </div>
+
+    <div class="input-group">
+        <label>FEIN-HASH (Optional zur Spezifizierung)</label>
+        <input type="text" id="hash2" placeholder="z. B. 9-7-9-6" autocomplete="off">
+    </div>
+
+    <button onclick="decodeHash()">MÖGLICHE WÖRTER SUCHEN</button>
+
+    <div class="output-box" id="resultOutput">
+        <div class="status" id="statusText"></div>
+        <pre id="matchesList"></pre>
+    </div>
+</div>
+
+<script>
+// Hilfsfunktionen Forward Algebra
+function getDigitalRoot(num) {
+    let n = Math.abs(Math.floor(num));
+    while (n >= 10) {
+        n = n.toString().split('').reduce((sum, d) => sum + parseInt(d, 10), 0);
+    }
+    return n;
+}
+
+function getSumOfDigits(str) {
+    let digits = str.toString().replace(/[^0-9]/g, '');
+    if (!digits) return 0;
+    return digits.split('').reduce((acc, d) => acc + parseInt(d, 10), 0);
+}
+
+// Prüft, ob eine A1Z26-Sequenz alle Kriterien erfüllt
+function validateSequence(nums, targetS1, targetS2, targetS3, targetHash2) {
+    let s1 = nums.reduce((a, b) => a + b, 0);
+    if (s1 !== targetS1) return false;
+
+    let allDigitsStr = nums.join('');
+    let s3 = getSumOfDigits(allDigitsStr);
+    if (s3 !== targetS3) return false;
+
+    let s2 = getDigitalRoot(s3);
+    if (s2 !== targetS2) return false;
+
+    // Falls Fein-Hash angegeben ist (r4-r5-r6-r7)
+    if (targetHash2) {
+        let s4 = s1 + s2 + s3;
+        let r4 = getDigitalRoot(s4);
+
+        let s5 = s1 - s2 - s3;
+        let s5_str = s5.toString();
+        let r5_diff = (s5 >= 10) ? Math.abs(parseInt(s5_str[0]) - parseInt(s5_str[1])) : Math.abs(s5);
+
+        let s6 = s4 * s5;
+        let r6 = getDigitalRoot(getSumOfDigits(s6));
+
+        let s7 = s4 / s5;
+        let s7_formatted = Number.isInteger(s7) ? s7.toString() : s7.toFixed(3).replace('.', ',');
+        let r7 = getDigitalRoot(getSumOfDigits(s7_formatted));
+
+        let currentHash2 = `${r4}-${r5_diff}-${r6}-${r7}`;
+        if (currentHash2 !== targetHash2) return false;
+    }
+
+    return true;
+}
+
+// Rekursive Suche nach passenden A1Z26 Zahlenreihen
+function findCombinations(targetS1, targetS2, targetS3, targetHash2) {
+    let results = [];
+    
+    // Teste Wortlängen von 2 bis 8 Buchstaben
+    for (let len = 2; len <= 8; len++) {
+        function backtrack(currentArr, currentSum) {
+            if (currentArr.length === len) {
+                if (currentSum === targetS1) {
+                    if (validateSequence(currentArr, targetS1, targetS2, targetS3, targetHash2)) {
+                        let word = currentArr.map(n => String.fromCharCode(n + 96)).join('');
+                        results.push(word);
+                    }
+                }
+                return;
+            }
+
+            let remainingLen = len - currentArr.length;
+            let minPossible = currentSum + remainingLen * 1;
+            let maxPossible = currentSum + remainingLen * 26;
+
+            if (targetS1 < minPossible || targetS1 > maxPossible) return;
+
+            for (let val = 1; val <= 26; val++) {
+                backtrack([...currentArr, val], currentSum + val);
+            }
+        }
+
+        backtrack([], 0);
+    }
+    return results;
+}
+
+function decodeHash() {
+    const rawHash1 = document.getElementById('hash1').value.trim();
+    const rawHash2 = document.getElementById('hash2').value.trim();
+
+    if (!rawHash1) return;
+
+    const parts1 = rawHash1.split('-').map(n => parseInt(n.trim(), 10));
+    if (parts1.length !== 3 || parts1.some(isNaN)) {
+        alert("Bitte Haupt-Hash im Format 63-9-36 eingeben.");
+        return;
+    }
+
+    const [s1, s2, s3] = parts1;
+
+    document.getElementById('statusText').innerText = "Berechne Kombinationen...";
+    document.getElementById('matchesList').innerText = "";
+    document.getElementById('resultOutput').style.display = 'block';
+
+    setTimeout(() => {
+        let matches = findCombinations(s1, s2, s3, rawHash2);
+
+        document.getElementById('statusText').innerText = `Gefundene Treffer (${matches.length}):`;
+        
+        if (matches.length > 0) {
+            document.getElementById('matchesList').innerHTML = matches.map(m => `<span class="match-item">${m}</span>`).join('\n');
+        } else {
+            document.getElementById('matchesList').innerText = "Keine passenden Buchstabenkombinationen gefunden.";
+        }
+    }, 50);
+}
+</script>
+
+</body>
+</html>
